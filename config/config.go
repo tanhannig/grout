@@ -8,27 +8,35 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// HealthCheckConfig holds optional readiness probe settings per service.
-type HealthCheckConfig struct {
-	URL      string `yaml:"url"`
-	Retries  int    `yaml:"retries"`
-	Interval string `yaml:"interval"`
-	Timeout  string `yaml:"timeout"`
-}
-
-// Service represents a single managed process.
+// Service represents a single runnable service.
 type Service struct {
 	Name        string            `yaml:"name"`
 	Command     string            `yaml:"command"`
 	Dir         string            `yaml:"dir"`
 	Env         map[string]string `yaml:"env"`
-	HealthCheck *HealthCheckConfig `yaml:"health_check"`
+	HealthCheck *HealthCheck      `yaml:"health_check"`
+	Restart     *RestartPolicy    `yaml:"restart"`
+}
+
+// HealthCheck holds configuration for HTTP health probing.
+type HealthCheck struct {
+	URL      string `yaml:"url"`
+	Interval int    `yaml:"interval"`
+	Timeout  int    `yaml:"timeout"`
+}
+
+// RestartPolicy controls automatic restarts on failure.
+type RestartPolicy struct {
+	OnFailure  bool `yaml:"on_failure"`
+	MaxRetries int  `yaml:"max_retries"`
 }
 
 // Config is the top-level grout configuration.
 type Config struct {
 	Services []Service `yaml:"services"`
 }
+
+const DefaultFile = "grout.yaml"
 
 // Load reads and validates a grout config file.
 func Load(path string) (*Config, error) {
@@ -50,10 +58,10 @@ func validate(cfg *Config) error {
 	if len(cfg.Services) == 0 {
 		return errors.New("config must define at least one service")
 	}
-	seen := make(map[string]bool)
+	seen := make(map[string]bool, len(cfg.Services))
 	for _, svc := range cfg.Services {
 		if svc.Command == "" {
-			return fmt.Errorf("service %q missing command", svc.Name)
+			return fmt.Errorf("service %q: command is required", svc.Name)
 		}
 		if seen[svc.Name] {
 			return fmt.Errorf("duplicate service name: %q", svc.Name)
