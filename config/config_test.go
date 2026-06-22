@@ -76,3 +76,10 @@ func TestLoad_NoServices(t *testing.T) {
 		t.Fatal("expected error for empty services, got nil")
 	}
 }
+
+func TestLoad_FileNotFound(t *testing.T) {
+	_, err := config.Load("/nonexistent/path/grout.yaml")
+	if err == nil {
+		t.Fatal("expected error for missing file, got nil")
+	}
+}
