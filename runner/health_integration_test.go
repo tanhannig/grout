@@ -39,6 +39,29 @@ func TestHealthCheck_IntegrationWithRunner(t *testing.T) {
 	}
 }
 
+// TestHealthCheck_NeverReady verifies that Probe returns an unhealthy status
+// when the service never becomes ready within the configured retry budget.
+func TestHealthCheck_NeverReady(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}))
+	defer ts.Close()
+
+	hc := runner.HealthCheck{
+		URL:      ts.URL,
+		Interval: 10 * time.Millisecond,
+		Timeout:  100 * time.Millisecond,
+		Retries:  3,
+	}
+	status := hc.Probe("svc")
+	if status.Healthy {
+		t.Error("expected service to remain unhealthy, but got healthy status")
+	}
+	if status.Err == nil {
+		t.Error("expected a non-nil error for an unhealthy service")
+	}
+}
+
 func TestDefaultHealthCheck_Fields(t *testing.T) {
 	hc := runner.DefaultHealthCheck("http://localhost:3000/ready")
 	if hc.URL != "http://localhost:3000/ready" {
